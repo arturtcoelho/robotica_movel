@@ -235,40 +235,26 @@ if (len(m_bot) < 3):
 
 # calculate position
 # original map == field_map_c
-# measurements == m_bot
+# measurements == m_bot[distance, angle, x, y]
 
-# x = l[3]
-# y = l4[4]
-l1 = m_bot[0]
-l2 = m_bot[1]
-l3 = m_bot[2]
+# get all the distances
+z0 = m_bot[0]
+zi = m_bot[1]
+zj = m_bot[2]
 
-xl1 = l1[2] - l2[2]
-yl1 = l1[3] - l2[3]
-xl3 = l3[2] - l2[2]
-yl3 = l3[3] - l2[3]
+# calculate the right side of the linear system
+A = ((z0[0]**2- zi[0]**2 - z0[2]**2 + zi[2]**2 - z0[3]**2 + zi[3]**2))/2
+B = ((z0[0]**2- zj[0]**2 - z0[2]**2 + zj[2]**2 - z0[3]**2 + zj[3]**2))/2
 
-T12 = 1/tan(l2[1] - l1[1])
-T23 = 1/tan(l3[1] - l2[1])
-T31 = (1 - T12*T23) / (T12 + T23) 
+# calculate the coefficients of Px and Py
+a = (zi[2] - z0[2])
+b = (zi[3] - z0[3])
+c = (zj[2] - z0[2])
+d = (zj[3] - z0[3])
 
-xl12 = xl1 + (T12 * yl1)
-yl12 = yl1 - (T12 * xl1)
-
-xl23 = xl3 - T23*yl3
-yl23 = yl3 + T23*xl3
-
-xl31 = (xl3 + xl1) + T31 * (yl3 - yl1)
-yl31 = (yl3 + yl1) - T31 * (xl3 - xl1)
-
-kl31 = xl1 * xl3 + yl1 * yl3 + T31 * (xl1 * yl3 - xl3 * yl1)
-
-D = (xl12 - xl23)*(yl23 - yl31) - (yl12 - yl23)*(xl23 - xl31)
-if (D == 0):
-    exit(1)
-
-xr = l2[2] + (kl31*(yl12 - yl23) / D)
-yr = l2[3] + (kl31*(xl23 - xl12) / D)
+# calculate Px and Py
+yr = (B*a - A*c)/(a*d - b*c)
+xr = (A/a) - ((b/a)*yr)
 
 bot2 = [xr, yr, bot[2]]
 
