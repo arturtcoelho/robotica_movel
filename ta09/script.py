@@ -110,6 +110,10 @@ class Interface(Thread):
         for l in lines:
             self.canvas.create_line(self.coord(l))
 
+    def print_lines_2(self, lines):
+        for l in lines:
+            self.canvas.create_line(self.coord(l), fill="red")
+
     def print_field(self):
         l = []
 
@@ -130,16 +134,28 @@ class Interface(Thread):
         self.canvas.create_polygon(self.coord(bot_square.square_back), fill="orange", outline="black")
         self.canvas.create_polygon(self.coord(bot_square.square_front), fill="red", outline="black")
 
+    def print_bot_2(self, pos):
+        bot_square = Square(pos)
+        self.canvas.create_polygon(self.coord(bot_square.square_back), fill="pink", outline="black")
+        self.canvas.create_polygon(self.coord(bot_square.square_front), fill="purple", outline="black")
+
     def print_measures(self, lines):
         self.print_lines(lines)   
+    
+    def print_measures_2(self, lines):
+        self.print_lines_2(lines)
 
-    def update(self, pos, lines, po2):
+    def update(self, pos, lines, pos2, lines2):
         self.canvas.delete("all") # delete the old polygon
 
         self.print_field()
         self.print_map()
         self.print_measures(lines)
         self.print_bot(pos)
+        if (pos2):
+            self.print_bot_2(pos2)
+        if (lines2):
+            self.print_measures_2(lines2)
 
         self.root.update()
 
@@ -179,15 +195,17 @@ bot = [int(random()*10)*num_square,
         int(random()*10)*num_square, 
         radians(int(random()*24)*15)]
 
+err = np.random.normal(1, 0.01, len(field_map)*2)
+
 # map (points) converted and map with deviation
 field_map_c = [[p[0]*10+5, p[1]*10+5] for p in field_map]
-field_map_dev = [[p[0]*np.random.normal(1, 0.1), p[1]*np.random.normal(1, 0.1)] 
-                    for p in field_map_c]
+field_map_dev = [[p[0]*err[i], p[1]*err[i*2]] 
+                    for i, p in enumerate(field_map_c)]
 
 # perfect measures and deviated measures (distance, angle)
 measurements = [[vec_dist(p, bot), -atan2(p[1] - bot[1], p[0] - bot[0])] 
                 for p in field_map_c]
-m_dev = [[vec_dist(p, bot), -atan2(p[1] - bot[1], p[0] - bot[0])] 
+m_dev = [[vec_dist(p, bot), -atan2(p[1] - bot[1], p[0] - bot[0]), p[0], p[1]] 
                 for p in field_map_dev]
 
 # pairs bot/point and deviated pairs
@@ -201,7 +219,7 @@ m_pairs_dev_full = [[p[0], p[1], bot[0], bot[1]] for p in field_map_dev]
 
 # measures (distance, angle) converted to bot pov
 # only if in front of bot
-m_bot = [[m[0], math.fmod(convert_angle(bot[2] - m[1]), radians(360))] for m in m_dev 
+m_bot = [[m[0], math.fmod(convert_angle(bot[2] - m[1]), radians(360)), m[2], m[3]] for m in m_dev 
         if -pi/2 <= math.fmod(convert_angle(bot[2] - m[1]), radians(360)) <= pi/2]
 
 print([bot[0], bot[1], math.degrees(bot[2])])
@@ -209,19 +227,53 @@ print([[m[0], math.degrees(m[1])] for m in m_bot])
 
 # Initialize tkinter
 inf = Interface()
-inf.update(bot, m_pairs_dev, None)
-
-input()
+inf.update(bot, m_pairs_dev, None, None)
 
 if (len(m_bot) < 3):
     print("not enough measurements")
+    exit()
 
 # calculate position
 # original map == field_map_c
 # measurements == m_bot
 
-bot2 = []
+# x = l[3]
+# y = l4[4]
+l1 = m_bot[0]
+l2 = m_bot[1]
+l3 = m_bot[2]
 
-inf.update(bot, m_pairs_dev, bot2)
+xl1 = l1[2] - l2[2]
+yl1 = l1[3] - l2[3]
+xl3 = l3[2] - l2[2]
+yl3 = l3[3] - l2[3]
+
+T12 = 1/tan(l2[1] - l1[1])
+T23 = 1/tan(l3[1] - l2[1])
+T31 = (1 - T12*T23) / (T12 + T23) 
+
+xl12 = xl1 + (T12 * yl1)
+yl12 = yl1 - (T12 * xl1)
+
+xl23 = xl3 - T23*yl3
+yl23 = yl3 + T23*xl3
+
+xl31 = (xl3 + xl1) + T31 * (yl3 - yl1)
+yl31 = (yl3 + yl1) - T31 * (xl3 - xl1)
+
+kl31 = xl1 * xl3 + yl1 * yl3 + T31 * (xl1 * yl3 - xl3 * yl1)
+
+D = (xl12 - xl23)*(yl23 - yl31) - (yl12 - yl23)*(xl23 - xl31)
+if (D == 0):
+    exit(1)
+
+xr = l2[2] + (kl31*(yl12 - yl23) / D)
+yr = l2[3] + (kl31*(xl23 - xl12) / D)
+
+bot2 = [xr, yr, bot[2]]
+
+print(bot2)
+
+inf.update(bot, m_pairs_dev, bot2, m_pairs_dev[0:3])
 
 input()
